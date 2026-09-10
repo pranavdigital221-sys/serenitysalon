@@ -1,0 +1,8 @@
+{
+  "name": "Remix Tailwind to Elementor Architect",
+  "description": "Serenity Luxury Salon & Spa official appointment booking and beauty platform featuring real-time slot scheduling, double booking prevention, official Google Workspace Gmail API integration, WhatsApp concierge notifications, admin dashboard with status management, and persistent storage.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

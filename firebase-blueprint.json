@@ -1,0 +1,111 @@
+{
+  "entities": {
+    "appointment": {
+      "title": "Appointment",
+      "description": "Salon and Spa customer appointment reservation",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique appointment identifier",
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "serviceName": {
+          "type": "string",
+          "description": "Name of booked salon treatment or spa service",
+          "maxLength": 200
+        },
+        "serviceCategory": {
+          "type": "string",
+          "description": "Category of service (e.g. Hair Care, Skin Care, Makeup)",
+          "maxLength": 100
+        },
+        "servicePrice": {
+          "type": "number",
+          "description": "Total price for the service in INR"
+        },
+        "preferredDate": {
+          "type": "string",
+          "description": "Scheduled appointment date in YYYY-MM-DD format",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "preferredTime": {
+          "type": "string",
+          "description": "Scheduled appointment time slot",
+          "maxLength": 30
+        },
+        "fullName": {
+          "type": "string",
+          "description": "Customer full name",
+          "maxLength": 100
+        },
+        "phone": {
+          "type": "string",
+          "description": "Customer contact phone or WhatsApp number",
+          "maxLength": 30
+        },
+        "email": {
+          "type": "string",
+          "description": "Customer email address",
+          "maxLength": 150
+        },
+        "notes": {
+          "type": "string",
+          "description": "Special styling or consultation notes",
+          "maxLength": 1000
+        },
+        "status": {
+          "type": "string",
+          "description": "Current booking workflow status",
+          "enum": ["Pending", "Confirmed", "Completed", "Cancelled"]
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp in ISO format"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last update timestamp in ISO format"
+        }
+      },
+      "required": [
+        "id",
+        "serviceName",
+        "preferredDate",
+        "preferredTime",
+        "fullName",
+        "phone",
+        "status",
+        "createdAt"
+      ]
+    },
+    "admin": {
+      "title": "Admin",
+      "description": "Authorized Salon Administrator profile",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "Admin email address",
+          "maxLength": 150
+        },
+        "role": {
+          "type": "string",
+          "description": "Administrative access role",
+          "enum": ["admin", "superadmin", "manager"]
+        }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "/appointments/{appointmentId}": {
+      "schema": "appointment",
+      "description": "Salon customer appointment records"
+    },
+    "/admins/{adminId}": {
+      "schema": "admin",
+      "description": "System administrator user registry"
+    }
+  }
+}

@@ -1,0 +1,95 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Authentication helper
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Admin role checking helper
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (request.auth.token.email != null && 
+         request.auth.token.email.lower() in [
+           'admin@serenitysalon.com',
+           'pranavdigital221@gmail.com',
+           'pranavpokharkar339@gmail.com',
+           'manager@serenitysalon.com'
+         ] && request.auth.token.email_verified == true)
+      );
+    }
+
+    // ID validation helper
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Appointment data schema validation helper
+    function isValidAppointment(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.serviceName is string && data.serviceName.size() > 0 && data.serviceName.size() <= 200 &&
+             data.preferredDate is string && data.preferredDate.size() <= 20 &&
+             data.preferredTime is string && data.preferredTime.size() <= 30 &&
+             data.fullName is string && data.fullName.size() > 0 && data.fullName.size() <= 100 &&
+             data.phone is string && data.phone.size() > 0 && data.phone.size() <= 30 &&
+             data.status in ['Pending', 'Confirmed', 'Completed', 'Cancelled'] &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 150)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000)) &&
+             (!('serviceCategory' in data) || (data.serviceCategory is string && data.serviceCategory.size() <= 100)) &&
+             (!('servicePrice' in data) || (data.servicePrice is number));
+    }
+
+    // Salon Appointments:
+    // - Public availability checks: get and list are permitted so guests and clients can view slot bookings
+    // - State mutations (create, update, delete): strictly restricted to authenticated salon administrators
+    match /appointments/{appointmentId} {
+      allow get, list: if true;
+      allow create, update: if isAdmin() && isValidId(appointmentId) && isValidAppointment(request.resource.data);
+      allow delete: if isAdmin() && isValidId(appointmentId);
+    }
+
+    // Product Orders:
+    // - Authenticated admins can view and mutate all product orders
+    // - Guests / clients can read their specific order by ID or admin
+    match /product_orders/{orderId} {
+      allow get: if true;
+      allow list, create, update, delete: if isAdmin();
+    }
+
+    // Payments & Transactions:
+    // - Admin only audit log
+    match /payments/{paymentId} {
+      allow get, list, create, update, delete: if isAdmin();
+    }
+
+    // Slot Reservations:
+    // - Public read for checking availability
+    // - Mutated atomically by admin or server backend
+    match /slots/{slotId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Admin Users Directory:
+    // - Restricted exclusively to authenticated administrators
+    match /admins/{adminId} {
+      allow get, list: if isAdmin();
+      allow create, update, delete: if isAdmin() && isValidId(adminId);
+    }
+
+    // System Health & Connectivity Check:
+    // - Read allowed for safe client connection diagnostics without modifying data
+    // - Writes restricted strictly to authenticated administrators
+    match /system/{docId} {
+      allow get: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

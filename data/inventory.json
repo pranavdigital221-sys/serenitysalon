@@ -1,0 +1,216 @@
+{
+  "items": {
+    "ikonic-blaze-blk-001": {
+      "productId": "ikonic-blaze-blk-001",
+      "sku": "IKONIC-BLAZE-BLK-001",
+      "name": "Ikonic Professional Blaze Hair Dryer Black",
+      "stock": 36,
+      "lowStockThreshold": 5,
+      "lastUpdated": "2026-09-10T05:49:48.499Z"
+    },
+    "prod-1": {
+      "productId": "prod-1",
+      "sku": "prod-1",
+      "name": "Rosewater & Hyaluronic Radiance Elixir",
+      "stock": 45,
+      "lowStockThreshold": 5,
+      "lastUpdated": "2026-09-06T15:51:40.359Z"
+    },
+    "prod-2": {
+      "productId": "prod-2",
+      "sku": "prod-2",
+      "name": "Cold-Pressed Botanical Botanical Face Oil",
+      "stock": 45,
+      "lowStockThreshold": 5,
+      "lastUpdated": "2026-09-06T15:51:40.359Z"
+    },
+    "prod-3": {
+      "productId": "prod-3",
+      "sku": "prod-3",
+      "name": "Silk Petal Dewy Cushion Blush & Tint",
+      "stock": 45,
+      "lowStockThreshold": 5,
+      "lastUpdated": "2026-09-06T15:51:40.359Z"
+    },
+    "prod-4": {
+      "productId": "prod-4",
+      "sku": "prod-4",
+      "name": "Rosemary & Meadowfoam Scalp Revival Elixir",
+      "stock": 45,
+      "lowStockThreshold": 5,
+      "lastUpdated": "2026-09-06T15:51:40.359Z"
+    },
+    "prod-5": {
+      "productId": "prod-5",
+      "sku": "prod-5",
+      "name": "Velvet Jasmine & Neroli Botanical Eau de Parfum",
+      "stock": 45,
+      "lowStockThreshold": 5,
+      "lastUpdated": "2026-09-06T15:51:40.359Z"
+    },
+    "prod-6": {
+      "productId": "prod-6",
+      "sku": "prod-6",
+      "name": "Clarifying Matcha & Green Clay Gentle Cleanser",
+      "stock": 45,
+      "lowStockThreshold": 5,
+      "lastUpdated": "2026-09-06T15:51:40.359Z"
+    },
+    "prod-7": {
+      "productId": "prod-7",
+      "sku": "prod-7",
+      "name": "Botanical 10-Free Sheer Nude Nail Strengthener",
+      "stock": 45,
+      "lowStockThreshold": 5,
+      "lastUpdated": "2026-09-06T15:51:40.359Z"
+    },
+    "prod-8": {
+      "productId": "prod-8",
+      "sku": "prod-8",
+      "name": "Whipped Shea & Golden Honey Body Crème",
+      "stock": 45,
+      "lowStockThreshold": 5,
+      "lastUpdated": "2026-09-06T15:51:40.359Z"
+    },
+    "deal-1": {
+      "productId": "deal-1",
+      "sku": "deal-1",
+      "name": "Ultra-Hydrating Botanical Bio-Retinol Overnight Mask",
+      "stock": 45,
+      "lowStockThreshold": 5,
+      "lastUpdated": "2026-09-06T15:51:40.359Z"
+    },
+    "deal-2": {
+      "productId": "deal-2",
+      "sku": "deal-2",
+      "name": "Organic Sweet Amber & Vanilla Cashmere Hair Silk",
+      "stock": 45,
+      "lowStockThreshold": 5,
+      "lastUpdated": "2026-09-06T15:51:40.359Z"
+    },
+    "new-1": {
+      "productId": "new-1",
+      "sku": "new-1",
+      "name": "Luminous Vitamin C + Kakadu Plum Glow Serum",
+      "stock": 45,
+      "lowStockThreshold": 5,
+      "lastUpdated": "2026-09-06T15:51:40.359Z"
+    },
+    "new-2": {
+      "productId": "new-2",
+      "sku": "new-2",
+      "name": "Hydra-Silk Peptide Cloud Moisturizer",
+      "stock": 45,
+      "lowStockThreshold": 5,
+      "lastUpdated": "2026-09-06T15:51:40.359Z"
+    },
+    "new-3": {
+      "productId": "new-3",
+      "sku": "new-3",
+      "name": "Handcrafted Green Aventurine Facial Sculpting Tool",
+      "stock": 45,
+      "lowStockThreshold": 5,
+      "lastUpdated": "2026-09-06T15:51:40.359Z"
+    },
+    "new-4": {
+      "productId": "new-4",
+      "sku": "new-4",
+      "name": "Wild Blackberry & Cedar Botanical Candle",
+      "stock": 45,
+      "lowStockThreshold": 5,
+      "lastUpdated": "2026-09-06T15:51:40.359Z"
+    },
+    "new-5": {
+      "productId": "new-5",
+      "sku": "new-5",
+      "name": "Organic Tinted Lip & Cheek Butter Balm",
+      "stock": 45,
+      "lowStockThreshold": 5,
+      "lastUpdated": "2026-09-06T15:51:40.359Z"
+    },
+    "new-6": {
+      "productId": "new-6",
+      "sku": "new-6",
+      "name": "Gentle Chamomile & Calendula Cleansing Oil",
+      "stock": 45,
+      "lowStockThreshold": 5,
+      "lastUpdated": "2026-09-06T15:51:40.359Z"
+    }
+  },
+  "processedOrders": [
+    "TEST-ORDER-123",
+    "TEST-ORDER-IDEMP-001",
+    "SRN-ORD-51340",
+    "SRN-ORD-16008",
+    "SRN-ORD-78576",
+    "SRN-ORD-21742",
+    "SRN-ORD-38220",
+    "SRN-ORD-99545"
+  ],
+  "logs": [
+    {
+      "orderId": "TEST-ORDER-123",
+      "productId": "ikonic-blaze-blk-001",
+      "quantity": 1,
+      "previousStock": 45,
+      "newStock": 44,
+      "timestamp": "2026-09-06T15:51:40.359Z"
+    },
+    {
+      "orderId": "TEST-ORDER-IDEMP-001",
+      "productId": "ikonic-blaze-blk-001",
+      "quantity": 1,
+      "previousStock": 44,
+      "newStock": 43,
+      "timestamp": "2026-09-07T15:24:17.323Z"
+    },
+    {
+      "orderId": "SRN-ORD-51340",
+      "productId": "ikonic-blaze-blk-001",
+      "quantity": 1,
+      "previousStock": 43,
+      "newStock": 42,
+      "timestamp": "2026-09-07T15:42:26.239Z"
+    },
+    {
+      "orderId": "SRN-ORD-16008",
+      "productId": "ikonic-blaze-blk-001",
+      "quantity": 1,
+      "previousStock": 42,
+      "newStock": 41,
+      "timestamp": "2026-09-07T16:07:10.877Z"
+    },
+    {
+      "orderId": "SRN-ORD-78576",
+      "productId": "ikonic-blaze-blk-001",
+      "quantity": 1,
+      "previousStock": 41,
+      "newStock": 40,
+      "timestamp": "2026-09-07T16:09:28.701Z"
+    },
+    {
+      "orderId": "SRN-ORD-21742",
+      "productId": "ikonic-blaze-blk-001",
+      "quantity": 1,
+      "previousStock": 40,
+      "newStock": 39,
+      "timestamp": "2026-09-07T16:15:17.434Z"
+    },
+    {
+      "orderId": "SRN-ORD-38220",
+      "productId": "ikonic-blaze-blk-001",
+      "quantity": 2,
+      "previousStock": 39,
+      "newStock": 37,
+      "timestamp": "2026-09-07T16:15:24.675Z"
+    },
+    {
+      "orderId": "SRN-ORD-99545",
+      "productId": "ikonic-blaze-blk-001",
+      "quantity": 1,
+      "previousStock": 37,
+      "newStock": 36,
+      "timestamp": "2026-09-10T05:49:48.499Z"
+    }
+  ]
+}
