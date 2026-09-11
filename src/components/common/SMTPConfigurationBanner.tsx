@@ -14,7 +14,8 @@ import {
   Send,
   Sparkles,
   Zap,
-  Globe
+  Globe,
+  X
 } from 'lucide-react';
 import { getCachedGmailAccessToken, signInWithGoogleForGmail, auth } from '../../lib/firebase';
 import { getGmailProfile, sendEmailViaGmailApi, GmailUserProfile } from '../../services/gmailService';
@@ -39,6 +40,13 @@ export const SMTPConfigurationBanner: React.FC = () => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [smtpStatus, setSmtpStatus] = useState<SmtpStatusResponse | null>(null);
   const [isChecking, setIsChecking] = useState(false);
+  const [isDismissed, setIsDismissed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('serenity_dismiss_email_banner') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   // Gmail API Workspace OAuth state
   const [gmailUser, setGmailUser] = useState<GmailUserProfile | null>(null);
@@ -271,15 +279,73 @@ SMTP_FROM="Serenity Salon" <pranavdigital221@gmail.com>`;
   const isSmtpLive = smtpStatus?.status === 'LIVE' && isVerified;
   const isGmailApiLive = Boolean(gmailUser?.emailAddress);
   const isOverallEmailReady = isSmtpLive || isGmailApiLive;
+  const isBadCredentialsError = Boolean(
+    smtpStatus?.error && (smtpStatus.error.includes('535') || smtpStatus.error.includes('BadCredentials'))
+  );
+
+  if (isDismissed) {
+    return (
+      <div className="mb-6 px-4 py-3 bg-[#F7F5F1] rounded-2xl border border-[#1F3A26]/10 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+        <div className="flex items-center gap-2.5 text-xs text-[#1F3A26]">
+          <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+            <Mail className="w-3.5 h-3.5 text-emerald-700" />
+          </div>
+          <div>
+            <span className="font-bold">Email Dispatch Channel:</span>{' '}
+            <span className="font-mono bg-white px-2 py-0.5 rounded-md border border-gray-200 font-semibold text-emerald-800">
+              pranavdigital221@gmail.com
+            </span>
+            <span className="text-gray-500 ml-2 hidden sm:inline">
+              (Booking notifications &amp; customer receipts active)
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setIsDismissed(false);
+              try {
+                localStorage.removeItem('serenity_dismiss_email_banner');
+              } catch {
+                // Ignore storage error
+              }
+            }}
+            className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-xl border border-gray-200 shadow-2xs transition-colors cursor-pointer"
+          >
+            Email Settings &amp; Diagnostics
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={`mb-6 rounded-2xl border shadow-xs overflow-hidden transition-all ${
+    <div className={`mb-6 rounded-2xl border shadow-xs overflow-hidden transition-all relative ${
       isOverallEmailReady
         ? 'bg-gradient-to-r from-emerald-500/10 via-[#F7FAF8] to-emerald-500/5 border-emerald-300'
         : 'bg-gradient-to-r from-amber-500/10 via-[#FDF1E4] to-amber-500/5 border-amber-300/80'
     }`}>
+      {/* Dismiss Button */}
+      <button
+        type="button"
+        onClick={() => {
+          setIsDismissed(true);
+          try {
+            localStorage.setItem('serenity_dismiss_email_banner', 'true');
+          } catch {
+            // Ignore storage error
+          }
+        }}
+        className="absolute top-3 right-3 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-black/5 transition-colors cursor-pointer z-10"
+        title="Dismiss notice from dashboard"
+        aria-label="Dismiss banner"
+      >
+        <X className="w-4 h-4" />
+      </button>
+
       {/* Main Banner Bar */}
-      <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="p-4 sm:p-5 pr-12 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-start gap-3.5">
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 border ${
             isOverallEmailReady
@@ -316,7 +382,7 @@ SMTP_FROM="Serenity Salon" <pranavdigital221@gmail.com>`;
                 ? `Customer receipts & notifications are dispatched directly via Google Workspace Gmail REST API with real OAuth authorization.`
                 : isSmtpLive
                 ? `Booking confirmation receipts and admin notifications are actively dispatched through your authenticated Gmail SMTP server.`
-                : `You can send customer confirmation emails via Google Workspace Gmail API (1-click connect below) or standard SMTP with an App Password.`}
+                : `Permanent notification email set to pranavdigital221@gmail.com. You can send customer confirmation emails via Google Workspace Gmail API (1-click connect below) or standard SMTP with an App Password.`}
             </p>
           </div>
         </div>
@@ -361,6 +427,46 @@ SMTP_FROM="Serenity Salon" <pranavdigital221@gmail.com>`;
           </button>
         </div>
       </div>
+
+      {/* Google App Password Notification Box when 535 Bad Credentials detected */}
+      {isBadCredentialsError && (
+        <div className="mx-4 sm:mx-5 mb-3 p-3.5 rounded-xl bg-amber-100/80 border border-amber-300 text-xs text-amber-950 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="space-y-1">
+            <p className="font-bold text-amber-950 flex items-center gap-1.5">
+              <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+              Google 16-Character App Password Needed for pranavdigital221@gmail.com
+            </p>
+            <p className="text-[11px] text-amber-900/90 leading-relaxed">
+              Google SMTP rejected standard login credentials. Google requires a <strong>16-letter App Password</strong> (from Google Account &gt; Security &gt; 2-Step Verification &gt; App Passwords). Or click <strong>Connect Gmail API</strong> above for 1-click authorization!
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <a
+              href="https://myaccount.google.com/apppasswords"
+              target="_blank"
+              rel="noreferrer"
+              className="px-3 py-1.5 rounded-lg bg-[#1F3A26] hover:bg-[#2A4D33] text-[#F7F5F1] font-bold text-[11px] shadow-2xs transition-colors inline-flex items-center gap-1"
+            >
+              <span>Generate App Password</span>
+              <span className="text-xs">&rarr;</span>
+            </a>
+            <button
+              type="button"
+              onClick={() => {
+                setIsDismissed(true);
+                try {
+                  localStorage.setItem('serenity_dismiss_email_banner', 'true');
+                } catch {
+                  // Ignore
+                }
+              }}
+              className="px-3 py-1.5 rounded-lg bg-white hover:bg-amber-100 text-amber-900 font-semibold text-[11px] border border-amber-300 transition-colors cursor-pointer"
+            >
+              Dismiss Notice
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Real-time Diagnostics Bar */}
       <div className="px-4 sm:px-5 py-2.5 bg-white/60 border-t border-gray-200/60 flex flex-wrap items-center justify-between gap-3 text-xs">

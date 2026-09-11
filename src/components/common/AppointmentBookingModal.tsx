@@ -379,6 +379,13 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
               bc.postMessage({ type: 'NEW_APPOINTMENT_BOOKED', payload: appointmentData });
               bc.close();
             }
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem('serenity_last_booking_event', JSON.stringify({
+                type: 'NEW_BOOKING',
+                appointment: appointmentData,
+                timestamp: Date.now(),
+              }));
+            }
           } catch (eventErr) {
             console.debug('Event dispatch notice:', eventErr);
           }
@@ -420,6 +427,18 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
     try {
       window.dispatchEvent(new CustomEvent('appointment-updated', { detail: updatedApt }));
       window.dispatchEvent(new CustomEvent('serenity:new-appointment', { detail: updatedApt }));
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('serenity_appointments_channel');
+        bc.postMessage({ type: 'BOOKING_CONFIRMED', payload: updatedApt });
+        bc.close();
+      }
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('serenity_last_booking_event', JSON.stringify({
+          type: 'BOOKING_CONFIRMED',
+          appointment: updatedApt,
+          timestamp: Date.now(),
+        }));
+      }
     } catch {
       // ignore
     }

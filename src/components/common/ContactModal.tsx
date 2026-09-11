@@ -121,8 +121,8 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose }) =
               <a href="tel:+918108765851" className="flex items-center gap-1 hover:text-[#1F3A26] transition-colors">
                 <Phone className="w-3 h-3 text-[#C9A66B]" /> +91 8108765851
               </a>
-              <a href="mailto:care@serenitysalon.in" className="flex items-center gap-1 hover:text-[#1F3A26] transition-colors">
-                <Mail className="w-3 h-3 text-[#C9A66B]" /> care@serenitysalon.in
+              <a href="mailto:pranavdigital221@gmail.com" className="flex items-center gap-1 hover:text-[#1F3A26] transition-colors">
+                <Mail className="w-3 h-3 text-[#C9A66B]" /> pranavdigital221@gmail.com
               </a>
             </div>
           </div>

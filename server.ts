@@ -380,22 +380,39 @@ function getSmtpFromHeader(): string {
   return `Serenity Salon <${user}>`;
 }
 
+let lastSmtpVerifyTime = 0;
+let cachedSmtpResult: { verified: boolean; error?: string } | null = null;
+
 // Notification Dispatcher
-async function verifySmtpConnection(): Promise<{ verified: boolean; error?: string }> {
+async function verifySmtpConnection(forceFresh = false): Promise<{ verified: boolean; error?: string }> {
+  const now = Date.now();
+  if (!forceFresh && cachedSmtpResult && (now - lastSmtpVerifyTime < 60000)) {
+    return cachedSmtpResult;
+  }
+
   const transporter = getSmtpTransporter();
   if (!transporter) {
-    return { verified: false, error: 'Missing SMTP credentials (SMTP_HOST, SMTP_USER, SMTP_PASS required)' };
+    cachedSmtpResult = { verified: false, error: 'Missing SMTP credentials (SMTP_HOST, SMTP_USER, SMTP_PASS required)' };
+    lastSmtpVerifyTime = now;
+    return cachedSmtpResult;
   }
 
   try {
-    await transporter.verify();
+    await Promise.race([
+      transporter.verify(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('SMTP connection timeout after 5s')), 5000)),
+    ]);
     console.log('[SMTP] Verification successful - SMTP connection is verified and LIVE.');
-    return { verified: true };
+    cachedSmtpResult = { verified: true };
+    lastSmtpVerifyTime = now;
+    return cachedSmtpResult;
   } catch (err: any) {
     // Sanitize error message to prevent leaking any internal credentials
     const safeError = err?.message ? String(err.message).replace(/pass(word)?\s*[:=]\s*\S+/gi, 'pass: [REDACTED]') : 'SMTP verification failed';
     console.warn('[SMTP] Connection verification notice:', safeError);
-    return { verified: false, error: safeError };
+    cachedSmtpResult = { verified: false, error: safeError };
+    lastSmtpVerifyTime = now;
+    return cachedSmtpResult;
   }
 }
 
@@ -1158,6 +1175,49 @@ async function startServer() {
     }
   });
 
+  // Real-time SSE (Server-Sent Events) connected admin clients
+  const sseAdminClients = new Set<Response>();
+
+  function broadcastAdminLiveEvent(event: { type: string; payload: any }): void {
+    const data = `data: ${JSON.stringify(event)}\n\n`;
+    for (const client of sseAdminClients) {
+      try {
+        client.write(data);
+      } catch {
+        sseAdminClients.delete(client);
+      }
+    }
+  }
+
+  // GET /api/admin/live-events - Real-time SSE stream for Admin Portal (Ring alerts, live bookings)
+  app.get('/api/admin/live-events', (req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+
+    // Send connected handshake
+    res.write(`data: ${JSON.stringify({ type: 'CONNECTED', timestamp: new Date().toISOString() })}\n\n`);
+
+    sseAdminClients.add(res);
+
+    // Keep-alive heartbeat every 20s
+    const heartbeat = setInterval(() => {
+      try {
+        res.write(': heartbeat\n\n');
+      } catch {
+        clearInterval(heartbeat);
+        sseAdminClients.delete(res);
+      }
+    }, 20000);
+
+    req.on('close', () => {
+      clearInterval(heartbeat);
+      sseAdminClients.delete(res);
+    });
+  });
+
   // POST /api/appointments - Submit & permanently save new appointment
   app.post('/api/appointments', async (req: Request, res: Response) => {
     try {
@@ -1412,6 +1472,12 @@ async function startServer() {
         activeBookingLocks.delete(slotKey);
       }
 
+      // Broadcast real-time booking event to all connected admin portals (rings chime & displays instant alert)
+      broadcastAdminLiveEvent({
+        type: 'NEW_BOOKING',
+        payload: newAppointment,
+      });
+
       // Return successful HTTP 201 response to client IMMEDIATELY
       res.status(201).json({
         success: true,
@@ -1543,6 +1609,11 @@ async function startServer() {
       appointments[index].updatedAt = new Date().toISOString();
 
       writeAppointments(appointments);
+
+      broadcastAdminLiveEvent({
+        type: 'STATUS_UPDATED',
+        payload: { id, status },
+      });
 
       console.log(`[STATUS UPDATED] Appointment ${id} marked as ${status}`);
 
@@ -1835,6 +1906,12 @@ async function startServer() {
       appointments[index].updatedAt = new Date().toISOString();
 
       writeAppointments(appointments);
+
+      // Broadcast real-time booking confirmation event to all connected admin portals
+      broadcastAdminLiveEvent({
+        type: 'BOOKING_CONFIRMED',
+        payload: appointments[index],
+      });
 
       console.log(`[PAYMENT VERIFIED] Appointment ${appointmentId} advance payment verified and recorded (${razorpayPaymentId})`);
 

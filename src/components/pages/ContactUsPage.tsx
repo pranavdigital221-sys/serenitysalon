@@ -129,15 +129,15 @@ export const ContactUsPage: React.FC<ContactUsPageProps> = ({ onNavigate }) => {
                   <Mail className="w-4 h-4 text-[#C9A66B]" />
                 </div>
                 <div>
-                  <strong className="block text-[#1F3A26] font-semibold mb-0.5">Email Support</strong>
+                  <strong className="block text-[#1F3A26] font-semibold mb-0.5">Email Support & Concierge</strong>
                   <a
-                    href="mailto:care@serenitysalon.in"
+                    href="mailto:pranavdigital221@gmail.com"
                     className="hover:text-[#1F3A26] font-medium text-[#1F3A26] block"
                   >
-                    care@serenitysalon.in
+                    pranavdigital221@gmail.com
                   </a>
                   <p className="text-xs text-[#6E6E6E] mt-0.5">
-                    Response within 24 business hours
+                    Official booking & reception desk
                   </p>
                 </div>
               </div>

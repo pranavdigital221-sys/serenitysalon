@@ -57,6 +57,7 @@ import {
   BellRing,
   BellOff,
   Volume2,
+  VolumeX,
   CreditCard,
   Loader2,
 } from 'lucide-react';
@@ -78,6 +79,7 @@ import {
   playNotificationChime,
   NotificationPermissionState 
 } from '../../services/fcmService';
+import { playBookingRingSound, unlockAudio } from '../../services/soundAlert';
 
 import { AdminOrdersManager } from '../admin/AdminOrdersManager';
 import { AdminPaymentsManager } from '../admin/AdminPaymentsManager';
@@ -394,6 +396,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     preferredTime: string;
   } | null>(null);
 
+  // Reception Bell & Sound Alert state
+  const [isSoundAlertEnabled, setIsSoundAlertEnabled] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('serenity_sound_alert_enabled') !== 'false';
+    }
+    return true;
+  });
+  const [soundAlertVolume] = useState<number>(0.8);
+  const knownAlertedAppointmentIdsRef = React.useRef<Set<string>>(new Set());
+  const isInitialLoadCompletedRef = React.useRef<boolean>(false);
+
+  // Toggle Sound Alert ON / OFF with quick audio unlock & test
+  const toggleSoundAlert = async () => {
+    const nextVal = !isSoundAlertEnabled;
+    setIsSoundAlertEnabled(nextVal);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('serenity_sound_alert_enabled', String(nextVal));
+    }
+    if (nextVal) {
+      await unlockAudio();
+      await playBookingRingSound({ volume: soundAlertVolume });
+      setActionFeedback('🔔 Booking Ring Alert Activated! (Reception chime will ring when any client books)');
+    } else {
+      setActionFeedback('🔕 Sound alerts muted.');
+    }
+    setTimeout(() => setActionFeedback(null), 4000);
+  };
+
   // Email retry loading state
   const [isRetryingEmail, setIsRetryingEmail] = useState<string | null>(null);
 
@@ -500,11 +530,64 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  // Unified Incoming Booking Alert Handler (Plays reception ringtone chime & displays alert banner)
+  const triggerIncomingBookingAlert = useCallback(
+    (apt: {
+      id?: string;
+      customerName?: string;
+      fullName?: string;
+      serviceName?: string;
+      preferredDate?: string;
+      preferredTime?: string;
+    }) => {
+      if (!apt) return;
+      const aptId = apt.id || `apt_${Date.now()}`;
+
+      // Deduplicate to avoid multiple chimes for the same booking
+      if (knownAlertedAppointmentIdsRef.current.has(aptId)) {
+        return;
+      }
+      knownAlertedAppointmentIdsRef.current.add(aptId);
+
+      // 1. Play reception bell ring sound
+      if (isSoundAlertEnabled) {
+        playBookingRingSound({ volume: soundAlertVolume }).catch(() => {});
+      }
+
+      const cName = apt.customerName || apt.fullName || 'Valued Client';
+      const sName = apt.serviceName || 'Luxury Salon Service';
+      const pDate = apt.preferredDate || new Date().toISOString().split('T')[0];
+      const pTime = apt.preferredTime || '';
+
+      // 2. Set instant alert banner
+      setNewBookingAlert({
+        id: aptId,
+        customerName: cName,
+        serviceName: sName,
+        preferredDate: pDate,
+        preferredTime: pTime,
+      });
+
+      // 3. Trigger native browser push notification
+      triggerNativeNotification(`🔔 New Booking Confirmed: ${cName}`, {
+        body: `${sName} on ${pDate} at ${pTime}`,
+      });
+
+      // 4. Action feedback toast
+      setActionFeedback(`🔔 Booking Alert: ${cName} booked ${sName}!`);
+      setTimeout(() => setActionFeedback(null), 5000);
+    },
+    [isSoundAlertEnabled, soundAlertVolume]
+  );
+
   // Test Push Notification Chime & Banner
-  const handleTestNotification = () => {
-    playNotificationChime();
-    triggerNativeNotification('✨ Serenity Salon: Test Notification', {
-      body: 'Firebase Cloud Messaging & browser push alerts are operational for new bookings.',
+  const handleTestNotification = async () => {
+    await unlockAudio();
+    if (isSoundAlertEnabled) {
+      await playBookingRingSound({ volume: soundAlertVolume });
+    }
+    triggerNativeNotification('✨ Serenity Salon: Client Booking Alert', {
+      body: 'Priya Sharma (Sample) booked Hydra-Glow Facial & Spa for 03:00 PM',
     });
     setNewBookingAlert({
       id: 'TEST-' + Math.floor(1000 + Math.random() * 9000),
@@ -513,8 +596,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       preferredDate: new Date().toISOString().split('T')[0],
       preferredTime: '03:00 PM',
     });
-    setActionFeedback('Sent test push notification & audio alert.');
-    setTimeout(() => setActionFeedback(null), 3500);
+    setActionFeedback('🔔 Reception chime ring played! Incoming booking alert banner is active.');
+    setTimeout(() => setActionFeedback(null), 4000);
   };
 
   // Fetch appointments from backend API
@@ -523,6 +606,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     try {
       const result = await appointmentApi.getAll(statusFilter, searchQuery);
       setAppointments(result.data);
+
+      // Deduplication & incoming booking detection
+      if (!isInitialLoadCompletedRef.current) {
+        result.data.forEach((apt) => {
+          if (apt.id) knownAlertedAppointmentIdsRef.current.add(apt.id);
+        });
+        isInitialLoadCompletedRef.current = true;
+      } else {
+        result.data.forEach((apt) => {
+          if (apt.id && !knownAlertedAppointmentIdsRef.current.has(apt.id)) {
+            triggerIncomingBookingAlert({
+              id: apt.id,
+              customerName: apt.fullName,
+              serviceName: apt.serviceName,
+              preferredDate: apt.preferredDate,
+              preferredTime: apt.preferredTime,
+            });
+          }
+        });
+      }
+
       const computedStats = await appointmentApi.getStats();
       setStats(computedStats);
     } catch (err) {
@@ -530,17 +634,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     } finally {
       if (showLoading) setIsLoadingAppointments(false);
     }
-  }, [statusFilter, searchQuery]);
+  }, [statusFilter, searchQuery, triggerIncomingBookingAlert]);
 
+  // Initial load and periodic background polling (every 6 seconds)
   useEffect(() => {
     fetchAppointments();
 
-    // 1. Listen for Firestore real-time updates directly
+    const pollInterval = setInterval(() => {
+      fetchAppointments(false);
+    }, 6000);
+
+    return () => clearInterval(pollInterval);
+  }, [fetchAppointments]);
+
+  // Setup Firestore real-time updates
+  useEffect(() => {
     let unsubscribeFirestore: (() => void) | null = null;
     try {
-      unsubscribeFirestore = listenToAppointments((_docs) => {
-        // Automatically sync latest appointments and stats silently without layout flashes
+      unsubscribeFirestore = listenToAppointments((docs) => {
         fetchAppointments(false);
+        if (isInitialLoadCompletedRef.current && Array.isArray(docs)) {
+          docs.forEach((docApt: any) => {
+            if (docApt.id && !knownAlertedAppointmentIdsRef.current.has(docApt.id)) {
+              triggerIncomingBookingAlert({
+                id: docApt.id,
+                customerName: docApt.fullName || docApt.customerName,
+                serviceName: docApt.serviceName,
+                preferredDate: docApt.preferredDate,
+                preferredTime: docApt.preferredTime,
+              });
+            }
+          });
+        }
       });
     } catch (fsErr) {
       console.debug('Firestore live subscription fallback:', fsErr);
@@ -555,71 +680,84 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (unsubscribeFirestore) unsubscribeFirestore();
       window.removeEventListener('appointment-updated', handleAppointmentUpdated);
     };
-  }, [fetchAppointments]);
+  }, [fetchAppointments, triggerIncomingBookingAlert]);
 
-  // Setup FCM Foreground Listener & Cross-Tab BroadcastChannel for real-time customer bookings
+  // Setup SSE (Server-Sent Events), FCM, Cross-Tab BroadcastChannel & LocalStorage sync
   useEffect(() => {
     let unsubscribeFCM: (() => void) | null = null;
 
-    // 1. Listen for FCM foreground push notifications
+    // 1. Server-Sent Events (SSE) from /api/admin/live-events
+    let eventSource: EventSource | null = null;
+    try {
+      eventSource = new EventSource('/api/admin/live-events');
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'NEW_BOOKING' || data.type === 'BOOKING_CONFIRMED') {
+            const apt = data.payload;
+            fetchAppointments(false);
+            triggerIncomingBookingAlert({
+              id: apt.id,
+              customerName: apt.customerName || apt.fullName,
+              serviceName: apt.serviceName,
+              preferredDate: apt.preferredDate,
+              preferredTime: apt.preferredTime,
+            });
+          } else if (data.type === 'STATUS_UPDATED') {
+            fetchAppointments(false);
+          }
+        } catch {
+          // ignore heartbeat comments or parse errors
+        }
+      };
+    } catch (e) {
+      console.debug('EventSource live-events fallback to polling:', e);
+    }
+
+    // 2. FCM Foreground push notifications
     setupFCMForegroundListener((payload) => {
       fetchAppointments(false);
-      if (payload.customerName && payload.serviceName) {
-        setNewBookingAlert({
-          id: payload.appointmentId || 'NEW',
-          customerName: payload.customerName,
-          serviceName: payload.serviceName,
-          preferredDate: payload.preferredDate || '',
-          preferredTime: payload.preferredTime || '',
-        });
-      }
+      triggerIncomingBookingAlert({
+        id: payload.appointmentId || 'NEW',
+        customerName: payload.customerName,
+        serviceName: payload.serviceName,
+        preferredDate: payload.preferredDate || '',
+        preferredTime: payload.preferredTime || '',
+      });
     }).then((unsub) => {
       unsubscribeFCM = unsub;
     });
 
-    // 2. Listen for same-window booking submissions
+    // 3. Same-window booking submissions
     const handleNewBookingCustomEvent = (event: any) => {
       const apt = event.detail;
       fetchAppointments(false);
-      playNotificationChime();
-      triggerNativeNotification(`✨ New Booking: ${apt?.fullName || 'Customer'}`, {
-        body: `${apt?.serviceName || 'Salon Service'} on ${apt?.preferredDate || ''} at ${apt?.preferredTime || ''}`,
+      triggerIncomingBookingAlert({
+        id: apt?.id,
+        customerName: apt?.fullName,
+        serviceName: apt?.serviceName,
+        preferredDate: apt?.preferredDate,
+        preferredTime: apt?.preferredTime,
       });
-      if (apt) {
-        setNewBookingAlert({
-          id: apt.id || 'NEW',
-          customerName: apt.fullName || 'Valued Client',
-          serviceName: apt.serviceName || 'Luxury Treatment',
-          preferredDate: apt.preferredDate || '',
-          preferredTime: apt.preferredTime || '',
-        });
-      }
     };
-
     window.addEventListener('serenity:new-appointment', handleNewBookingCustomEvent);
 
-    // 3. Listen for BroadcastChannel messages across other tabs
+    // 4. Cross-tab BroadcastChannel
     let broadcastChannel: BroadcastChannel | null = null;
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       try {
         broadcastChannel = new BroadcastChannel('serenity_appointments_channel');
         broadcastChannel.onmessage = (messageEvent) => {
-          if (messageEvent.data?.type === 'NEW_APPOINTMENT_BOOKED') {
+          if (messageEvent.data?.type === 'NEW_APPOINTMENT_BOOKED' || messageEvent.data?.type === 'BOOKING_CONFIRMED') {
             const apt = messageEvent.data.payload;
             fetchAppointments(false);
-            playNotificationChime();
-            triggerNativeNotification(`✨ New Booking: ${apt?.fullName || 'Customer'}`, {
-              body: `${apt?.serviceName || 'Salon Service'} on ${apt?.preferredDate || ''} at ${apt?.preferredTime || ''}`,
+            triggerIncomingBookingAlert({
+              id: apt?.id,
+              customerName: apt?.fullName || apt?.customerName,
+              serviceName: apt?.serviceName,
+              preferredDate: apt?.preferredDate,
+              preferredTime: apt?.preferredTime,
             });
-            if (apt) {
-              setNewBookingAlert({
-                id: apt.id || 'NEW',
-                customerName: apt.fullName || 'Valued Client',
-                serviceName: apt.serviceName || 'Luxury Treatment',
-                preferredDate: apt.preferredDate || '',
-                preferredTime: apt.preferredTime || '',
-              });
-            }
           }
         };
       } catch (bcErr) {
@@ -627,12 +765,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
     }
 
+    // 5. Cross-tab LocalStorage storage event
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === 'serenity_last_booking_event' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          const apt = parsed.appointment;
+          if (apt) {
+            fetchAppointments(false);
+            triggerIncomingBookingAlert({
+              id: apt.id,
+              customerName: apt.fullName || apt.customerName,
+              serviceName: apt.serviceName,
+              preferredDate: apt.preferredDate,
+              preferredTime: apt.preferredTime,
+            });
+          }
+        } catch {
+          // ignore
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageEvent);
+
     return () => {
+      if (eventSource) eventSource.close();
       if (unsubscribeFCM) unsubscribeFCM();
       window.removeEventListener('serenity:new-appointment', handleNewBookingCustomEvent);
+      window.removeEventListener('storage', handleStorageEvent);
       if (broadcastChannel) broadcastChannel.close();
     };
-  }, [fetchAppointments]);
+  }, [fetchAppointments, triggerIncomingBookingAlert]);
 
   // Handle status update
   const handleStatusChange = async (appointmentId: string, newStatus: AppointmentStatus) => {
@@ -1004,13 +1167,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               )}
             </button>
 
+            {/* Reception Ring Tone Sound Toggle */}
+            <button
+              onClick={toggleSoundAlert}
+              className={`px-3.5 py-2.5 rounded-full border text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer ${
+                isSoundAlertEnabled
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-900 hover:bg-emerald-100'
+                  : 'bg-gray-100 border-gray-300 text-gray-600 hover:bg-gray-200'
+              }`}
+              title={
+                isSoundAlertEnabled
+                  ? 'Live Booking Ring Sound: ACTIVE (Reception desk chime plays when client books). Click to mute.'
+                  : 'Sound Alert is MUTED. Click to activate live booking chime.'
+              }
+            >
+              {isSoundAlertEnabled ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                  <BellRing className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Ring Alert: ON</span>
+                </>
+              ) : (
+                <>
+                  <VolumeX className="w-3.5 h-3.5 text-gray-500" />
+                  <span>Ring Alert: OFF</span>
+                </>
+              )}
+            </button>
+
+            {/* Test Alert Button */}
             <button
               onClick={handleTestNotification}
-              className="px-3 py-2.5 rounded-full bg-white border border-gray-200 hover:border-[#1F3A26]/40 hover:bg-[#F7F5F1] text-[#1F3A26] text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
-              title="Test audio chime & push alert preview"
+              className="px-3.5 py-2.5 rounded-full bg-white border border-[#C9A66B]/60 hover:border-[#1F3A26] hover:bg-[#F7F5F1] text-[#1F3A26] text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+              title="Test reception chime ring & visual alert"
             >
               <Volume2 className="w-3.5 h-3.5 text-[#C9A66B]" />
-              <span className="hidden sm:inline">Test Alert</span>
+              <span>Test Alert</span>
             </button>
 
             <button
@@ -1084,43 +1276,55 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* Real-time Push Alert Banner */}
+        {/* Real-time Booking Push & Sound Alert Banner */}
         {newBookingAlert && (
-          <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-[#1F3A26] to-[#2e5437] text-white shadow-lg border border-[#C9A66B]/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 animate-in fade-in slide-in-from-top-3 duration-300">
-            <div className="flex items-start sm:items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#C9A66B] text-[#1F3A26] flex items-center justify-center font-bold shrink-0 shadow-sm animate-bounce">
-                <BellRing className="w-5 h-5 text-[#1F3A26]" />
+          <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#1F3A26] via-[#24462e] to-[#1F3A26] text-white shadow-xl border-2 border-[#C9A66B] flex flex-col md:flex-row md:items-center md:justify-between gap-4 animate-in fade-in slide-in-from-top-3 duration-300">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-[#C9A66B] text-[#1F3A26] flex items-center justify-center font-bold shrink-0 shadow-md animate-bounce">
+                <BellRing className="w-6 h-6 text-[#1F3A26]" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#C9A66B] bg-white/10 px-2 py-0.5 rounded">
-                    Instant Push Alert
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#1F3A26] bg-[#C9A66B] px-2.5 py-0.5 rounded-full shadow-xs flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-600 animate-ping" />
+                    NEW BOOKING CONFIRMED
                   </span>
-                  <span className="text-xs text-emerald-300 font-mono">Ref: {newBookingAlert.id}</span>
+                  <span className="text-xs text-emerald-300 font-mono font-semibold">Ref: {newBookingAlert.id}</span>
                 </div>
-                <h4 className="font-bold text-sm sm:text-base text-white mt-0.5">
-                  {newBookingAlert.customerName} booked <span className="text-[#C9A66B]">{newBookingAlert.serviceName}</span>
+                <h4 className="font-bold text-base sm:text-lg text-white mt-1">
+                  {newBookingAlert.customerName} booked <span className="text-[#C9A66B] font-extrabold underline decoration-[#C9A66B]/50">{newBookingAlert.serviceName}</span>
                 </h4>
-                <p className="text-xs text-gray-200">
-                  Scheduled for: <strong className="text-white">{newBookingAlert.preferredDate}</strong> at <strong className="text-white">{newBookingAlert.preferredTime}</strong>
+                <p className="text-xs sm:text-sm text-gray-200 mt-0.5 flex flex-wrap items-center gap-2">
+                  <span>Scheduled for:</span>
+                  <strong className="text-white bg-white/15 px-2 py-0.5 rounded font-mono">{newBookingAlert.preferredDate}</strong>
+                  <span>at</span>
+                  <strong className="text-white bg-white/15 px-2 py-0.5 rounded font-mono">{newBookingAlert.preferredTime}</strong>
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+            <div className="flex items-center gap-2.5 shrink-0 self-end md:self-center">
+              <button
+                onClick={() => playBookingRingSound({ volume: soundAlertVolume })}
+                className="px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-white/20"
+                title="Play ringing bell chime again"
+              >
+                <Volume2 className="w-4 h-4 text-[#C9A66B]" />
+                <span>Replay Ring</span>
+              </button>
               <button
                 onClick={() => {
                   setActiveTab('appointments');
                   fetchAppointments(true);
                   setNewBookingAlert(null);
                 }}
-                className="px-3.5 py-1.5 rounded-xl bg-[#C9A66B] hover:bg-[#b59358] text-[#1F3A26] text-xs font-bold transition-all shadow-sm cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-[#C9A66B] hover:bg-[#b59358] text-[#1F3A26] text-xs font-bold transition-all shadow-md cursor-pointer"
               >
                 View in Schedule
               </button>
               <button
                 onClick={() => setNewBookingAlert(null)}
-                className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
                 title="Dismiss alert"
               >
                 <X className="w-4 h-4" />

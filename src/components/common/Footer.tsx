@@ -246,7 +246,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenElementorGuide
               </li>
               <li className="flex items-center gap-2.5">
                 <Mail className="w-4 h-4 text-[#C9A66B] shrink-0" />
-                <a href="mailto:care@serenitysalon.in" className="hover:text-[#1F3A26]">care@serenitysalon.in</a>
+                <a href="mailto:pranavdigital221@gmail.com" className="hover:text-[#1F3A26]">pranavdigital221@gmail.com</a>
               </li>
               <li>
                 <a
